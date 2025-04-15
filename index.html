@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pruebas de Carga HTTP</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles/results-table.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Pruebas de Carga HTTP</h1>
+        <div id="okKoLegend" class="okko-legend-top"></div>
+        <form id="loadTestForm">
+            <label for="authUrl">URL para obtener Bearer Token (opcional):</label>
+            <input type="url" id="authUrl" name="authUrl" placeholder="https://ejemplo.com/api/login">
+            <label for="authHeaders">Cabeceras para token (JSON, opcional):</label>
+            <input type="text" id="authHeaders" name="authHeaders" placeholder='{"header1":"valor1"}'>
+            <label for="authBody">Body para token (JSON, opcional):</label>
+            <textarea id="authBody" name="authBody" rows="2" placeholder='{"usercode":"XXXX"}' style="resize:vertical;"></textarea>
+            
+
+            <label for="url">URL del endpoint:</label>
+            <input type="url" id="url" name="url" required placeholder="https://ejemplo.com/api" value="https://reqres.in/api/users">
+
+            <div style="margin-bottom:12px;">
+              <label><b>Body de la petición (JSON):</b></label><br>
+              <input type="radio" name="bodySource" id="bodySourceFile" value="file">
+              <label for="bodySourceFile">Archivo</label>
+              <input type="radio" name="bodySource" id="bodySourceText" value="text" checked>
+              <label for="bodySourceText">Texto manual</label>
+              <input type="radio" name="bodySource" id="bodySourceNone" value="none">
+              <label for="bodySourceNone">Vacío</label>
+              <div id="jsonFileGroup">
+                <input type="file" id="jsonFile" name="jsonFile" accept="application/json">
+              </div>
+              <div id="jsonTextAreaGroup" style="display:none;">
+                <textarea id="jsonTextArea" rows="7" style="width:100%;font-family:monospace;font-size:1em;"></textarea>
+              </div>
+              <div style="margin-top:8px;">
+                <input type="checkbox" id="replaceTokenCheck">
+                <label for="replaceTokenCheck">Reemplazar texto incremental en el body</label>
+                <span style="margin-left:8px;">Texto a reemplazar:</span>
+                <input type="text" id="replaceTokenString" style="width:90px;" value="ID-HILO">
+                <span style="margin-left:8px;">Nº inicial:</span>
+                <input type="number" id="replaceTokenStart" style="width:70px;" min="1" value="1">
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:18px;margin:18px 0 10px 0;">
+              <label style="display:flex;align-items:center;gap:6px;font-weight:500;">
+                <svg width="20" height="20" fill="#1976d2" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                <span>Hilos</span>
+                <input type="number" id="threads" name="threads" min="1" value="5" required style="width:60px;margin-left:4px;">
+              </label>
+              <span style="font-size:1.4em;color:#888;">×</span>
+              <label style="display:flex;align-items:center;gap:6px;font-weight:500;">
+                <svg width="20" height="20" fill="#43a047" viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1s-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c0-.55.45-1 1-1s1 .45 1 1v1h-2V3zm7 18H5V5h14v16zm-7-3c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/></svg>
+                <span>Peticiones/hilo</span>
+                <input type="number" id="requests" name="requests" min="1" value="20" required style="width:60px;margin-left:4px;">
+              </label>
+              <span style="font-size:1.4em;color:#888;">=</span>
+              <label style="display:flex;align-items:center;gap:6px;font-weight:500;">
+                <svg width="20" height="20" fill="#fbc02d" viewBox="0 0 24 24"><path d="M3 17v2c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-2H3zm16-2H5c-1.1 0-2-.9-2-2V5c0-1.1.9-2 2-2h14c1.1 0 2 .9 2 2v8c0 1.1-.9 2-2 2zm-7-6c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4z"/></svg>
+                <span>Total</span>
+                <input type="number" id="totalRequestsCalc" readonly style="background:#f4f6fb;font-weight:bold;width:90px;margin-left:4px;">
+              </label>
+            </div>
+
+            <button type="submit">Iniciar Prueba</button>
+        </form>
+        <div style="font-size:0.93em;color:#607d8b;margin-bottom:8px;">Estos datos se guardarán en el navegador para futuras sesiones.</div>
+        <section id="progressSection" class="hidden">
+            <h2>Progreso</h2>
+            <div class="summary-flex">
+                <div id="donutChart" class="donut-elegant"></div>
+                <div class="summary-info">
+                  <table id="progressTable" class="results-table">
+                    <thead>
+                      <tr>
+                        <th>OK</th>
+                        <th>KO</th>
+                        <th>Media OK</th>
+                        <th>Media KO</th>
+                        <th>Actual</th>
+                        <th>Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td><span id="okCount">0</span></td>
+                        <td><span id="koCount">0</span></td>
+                        <td><span id="okAvg">-</span> <span class="unit">ms</span></td>
+                        <td><span id="koAvg">-</span> <span class="unit">ms</span></td>
+                        <td><span id="totalCount">0</span></td>
+                        <td><span id="totalRequests">0</span></td>
+                      </tr>
+                    </tbody>
+                  </table>                 
+                </div>
+            </div>
+        </section>
+        <div id="okKoLegend" style="margin: 16px 0 0 0;"></div>
+        <section id="resultSection" class="hidden">
+            <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+              <button id="downloadPdfBtn" style="background:var(--aqua);color:#fff;border:none;padding:8px 16px;border-radius:6px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px #50b6ff33;">Descargar PDF</button>
+<button id="downloadKoLogBtn" style="background:#f44336;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px #e5737333;margin-left:10px;">Descargar log KO</button>
+            </div>
+            <h2>Resumen de Resultados</h2>
+            <canvas id="barChart" class="pdf-chart" style="width:100%;display:block;margin:auto;" height="320"></canvas>
+            <div id="globalReport"></div>
+            <h2 style="margin-top:32px;">Tiempos por Hilo (combinado)</h2>
+            <canvas id="threadsCombinedChart" class="pdf-chart" style="width:100%;display:block;margin:auto;" height="260"></canvas>
+            <div id="threadsCombinedLegend"></div>
+        </section>
+        
+    </div>
+    <script type="module" src="app.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</body>
+</html>
