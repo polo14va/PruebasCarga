@@ -1,76 +1,58 @@
 // ui/pdfExport.js
 // Exporta el resumen de resultados y progreso como PDF, incluyendo los gráficos.
 
-export function exportLoadTestPDF() {
-  // 1. Clonar solo la sección de progreso y resultados
-  const progressSection = document.getElementById('progressSection');
-  const resultSection = document.getElementById('resultSection');
-  const clone = document.createElement('div');
-  clone.style.background = '#fff';
-  clone.style.padding = '20px';
-  if (progressSection) clone.appendChild(progressSection.cloneNode(true));
-  if (resultSection) clone.appendChild(resultSection.cloneNode(true));
-  // 2. Insertar el clon al final del contenedor principal, visible pero invisible
-  clone.className = 'pdf-export-clone';
-  clone.style.position = 'static';
-  clone.style.opacity = '0';
-  clone.style.pointerEvents = 'none';
-  clone.style.width = '100%';
-  const container = document.querySelector('.container');
-  if (container) container.appendChild(clone);
-  else document.body.appendChild(clone);
-
-  // 3. Quitar la clase 'hidden' de las secciones relevantes en el clon
-  const resultSectionClone = clone.querySelector('#resultSection');
-  if (resultSectionClone) resultSectionClone.classList.remove('hidden');
-  const progressSectionClone = clone.querySelector('#progressSection');
-  if (progressSectionClone) progressSectionClone.classList.remove('hidden');
-
-  // 4. Sustituir los canvas del clon por imágenes
-  const canvasIds = ['barChart', 'threadsCombinedChart'];
-  canvasIds.forEach(id => {
-    const orig = document.getElementById(id);
-    const cl = clone.querySelector(`#${id}`);
-    if (orig && cl) {
-      const img = document.createElement('img');
-      img.src = orig.toDataURL('image/png');
-      img.style.width = '900px';
-      img.style.display = 'block';
-      img.style.margin = 'auto';
-      img.height = orig.height;
-      cl.parentNode.replaceChild(img, cl);
-    }
-  });
-
-  // 4b. Sustituir el donut SVG del clon por imagen rasterizada
-  const donutOrig = document.querySelector('.donut-elegant svg');
-  const donutCl = clone.querySelector('.donut-elegant svg');
-  if (donutOrig && donutCl) {
-    const svgData = new XMLSerializer().serializeToString(donutOrig);
-    const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
-    const url = URL.createObjectURL(svgBlob);
-    const img = document.createElement('img');
-    img.onload = function() {
-      URL.revokeObjectURL(url);
+export async function exportLoadTestPDF() {
+  // Obtener los datos del resumen
+  let result = window.currentLoadTestResult;
+  // Si no hay objeto global, intentar leer del DOM
+  if (!result) {
+    result = {
+      ok: parseInt(document.getElementById('okCount')?.textContent) || 0,
+      ko: parseInt(document.getElementById('koCount')?.textContent) || 0,
+      okAvg: document.getElementById('okAvg')?.textContent || '-',
+      okMin: document.getElementById('okMin')?.textContent || '-',
+      okMax: document.getElementById('okMax')?.textContent || '-',
+      duration: document.getElementById('durationRealtime')?.textContent || '-'
     };
-    img.src = url;
-    img.style.display = 'block';
-    img.style.margin = 'auto';
-    img.style.width = '210px';
-    img.style.height = '210px';
-    donutCl.parentNode.replaceChild(img, donutCl);
   }
 
-  // 5. Esperar un poco para asegurar renderizado antes de exportar
+  // Construir tabla manualmente
+  const html = `
+    <div style="font-family: Arial, sans-serif; width: 100%; max-width: 500px; margin: 0 auto;">
+      <h2 style="text-align:center;">Resumen de resultados</h2>
+      <table style="border-collapse: collapse; width: 100%; font-size: 1.1em;">
+        <tr><th style="border:1px solid #ccc; padding:6px 10px; text-align:left;">Total OK</th><td style="border:1px solid #ccc; padding:6px 10px;">${result.ok}</td></tr>
+        <tr><th style="border:1px solid #ccc; padding:6px 10px; text-align:left;">Total KO</th><td style="border:1px solid #ccc; padding:6px 10px;">${result.ko}</td></tr>
+        <tr><th style="border:1px solid #ccc; padding:6px 10px; text-align:left;">Tiempo medio global</th><td style="border:1px solid #ccc; padding:6px 10px;">${result.okAvg} ms</td></tr>
+        <tr><th style="border:1px solid #ccc; padding:6px 10px; text-align:left;">Tiempo mínimo</th><td style="border:1px solid #ccc; padding:6px 10px;">${result.okMin} ms</td></tr>
+        <tr><th style="border:1px solid #ccc; padding:6px 10px; text-align:left;">Tiempo máximo</th><td style="border:1px solid #ccc; padding:6px 10px;">${result.okMax} ms</td></tr>
+        <tr><th style="border:1px solid #ccc; padding:6px 10px; text-align:left;">Duración total</th><td style="border:1px solid #ccc; padding:6px 10px;">${result.duration}</td></tr>
+      </table>
+    </div>
+  `;
+
+  // Crear elemento temporal visible
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = html;
+  tempDiv.style.position = 'fixed';
+  tempDiv.style.top = '40px';
+  tempDiv.style.left = '0';
+  tempDiv.style.right = '0';
+  tempDiv.style.zIndex = '9999';
+  tempDiv.style.background = '#fff';
+  tempDiv.style.opacity = '1';
+  tempDiv.style.display = 'block';
+  tempDiv.style.pointerEvents = 'auto';
+  document.body.appendChild(tempDiv);
+
+  // Esperar 200ms para asegurar render
   setTimeout(() => {
     window.html2pdf()
-      .set({ margin: 0, filename: 'pruebas-carga.pdf', image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'pt', format: 'a4', orientation: 'portrait' } })
-      .from(clone)
+      .set({ margin: 10, filename: 'pruebas-carga.pdf', image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'pt', format: 'a4', orientation: 'portrait' } })
+      .from(tempDiv)
       .save()
       .then(() => {
-        // 6. Eliminar el clon
-        if (container && container.contains(clone)) container.removeChild(clone);
-        else if (document.body.contains(clone)) document.body.removeChild(clone);
+        document.body.removeChild(tempDiv);
       });
-  }, 120);
+  }, 200);
 }
