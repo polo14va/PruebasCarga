@@ -149,13 +149,27 @@ function showGlobalReport(result) {
         duration = ((end - result.startTime) / 1000).toFixed(2);
     }
     div.innerHTML = `
-      <table class="summary-table" style="margin:16px 0;">
-        <tr><td><b>Total OK</b></td><td>${result.ok}</td></tr>
-        <tr><td><b>Total KO</b></td><td>${result.ko}</td></tr>
-        <tr><td><b>Tiempo medio global</b></td><td>${avg} ms</td></tr>
-        <tr><td><b>Tiempo mínimo</b></td><td>${min} ms</td></tr>
-        <tr><td><b>Tiempo máximo</b></td><td>${max} ms</td></tr>
-        <tr><td><b>Duración total</b></td><td>${duration} s</td></tr>
+      <table class="results-table">
+        <thead>
+          <tr>
+            <th>Total OK</th>
+            <th>Total KO</th>
+            <th>Tiempo medio global</th>
+            <th>Tiempo mínimo</th>
+            <th>Tiempo máximo</th>
+            <th>Duración total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>${result.ok}</td>
+            <td>${result.ko}</td>
+            <td>${avg} <span class="unit">ms</span></td>
+            <td>${min} <span class="unit">ms</span></td>
+            <td>${max} <span class="unit">ms</span></td>
+            <td>${duration} <span class="unit">s</span></td>
+          </tr>
+        </tbody>
       </table>
     `;
 }

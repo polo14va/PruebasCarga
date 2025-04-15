@@ -83,7 +83,6 @@ export class BarChart {
         ctx.fillStyle = this.axisColor;
         ctx.font = '12px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('Petición', marginLeft + chartW/2, height-8);
     }
     drawRefLine(val, h, maxTime, color, label) {
         const ctx = this.ctx;

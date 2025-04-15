@@ -29,31 +29,42 @@ export class ThreadsCombinedChart {
         ctx.clearRect(0, 0, width, height);
         if (!threadResults || !threadResults.length) return;
 
-        // Calcular el máximo de peticiones entre hilos
-        const maxLen = Math.max(...threadResults.map(arr => arr.length));
-        // Calcular el máximo tiempo para escalar eje Y
-        const maxTime = Math.max(...threadResults.flat().map(r => r.time));
+        // Calcular el tiempo mínimo y máximo absoluto para eje X
+        const allTimes = threadResults.flat();
+        const minAbsTime = Math.min(...allTimes.map(r => r.timeStart !== undefined ? r.timeStart : r.time));
+        const maxAbsTime = Math.max(...allTimes.map(r => r.timeEnd !== undefined ? r.timeEnd : (r.timeStart !== undefined ? r.timeStart + r.time : r.time)));
+        const rangeAbsTime = maxAbsTime - minAbsTime;
+        const extraMargin = rangeAbsTime * 0.1;
+        const xMin = minAbsTime;
+        const xMax = maxAbsTime + extraMargin;
+
+        // Calcular el máximo tiempo para escalar eje Y (tiempo de respuesta)
+        const maxTime = Math.max(...allTimes.map(r => r.time));
 
         // Margen para ejes
-        const margin = 40;
-        const chartW = width - margin * 2;
-        const chartH = height - margin * 2;
+        const marginLeft = 90; // margen solo para textos verticales
+        const margin = 40; // margen general para la gráfica
+        const marginBottom = 30;
+        const chartW = width - marginLeft - margin;
+        const chartH = height - margin - marginBottom;
 
         // Dibujar ejes
         ctx.strokeStyle = this.axisColor;
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.moveTo(margin, margin);
-        ctx.lineTo(margin, height - margin);
+        ctx.moveTo(marginLeft, margin);
+        ctx.lineTo(marginLeft, height - margin);
         ctx.lineTo(width - margin, height - margin);
         ctx.stroke();
 
-        // Dibujar líneas por hilo
+        // Dibujar líneas por hilo (X = tiempo desde inicio, Y = tiempo de respuesta)
         threadResults.forEach((arr, idx) => {
             if (!arr.length) return;
             ctx.beginPath();
             arr.forEach((r, i) => {
-                const x = margin + (i / (maxLen - 1 || 1)) * chartW;
+                // Usar r.timeStart si existe, si no, usar r.time como tiempo absoluto
+                const absTime = r.timeStart !== undefined ? r.timeStart : (i === 0 ? xMin : xMin + i * (rangeAbsTime / (arr.length-1||1)));
+                const x = marginLeft + ((absTime - xMin) / (xMax - xMin)) * chartW;
                 const y = height - margin - (r.time / (maxTime || 1)) * chartH;
                 if (i === 0) ctx.moveTo(x, y);
                 else ctx.lineTo(x, y);
@@ -73,25 +84,38 @@ export class ThreadsCombinedChart {
             const val = maxTime * (i / yDivs);
             const y = height - margin - (val / maxTime) * chartH;
             ctx.beginPath();
-            ctx.moveTo(margin - 6, y);
-            ctx.lineTo(margin, y);
+            ctx.moveTo(marginLeft - 6, y);
+            ctx.lineTo(marginLeft, y);
             ctx.stroke();
-            ctx.fillText(`${Math.round(val)} ms`, margin - 10, y + 4);
+            ctx.fillText(`${Math.round(val)} ms`, marginLeft - 15, y + 4);
         }
         // Etiqueta eje Y
         ctx.save();
-        ctx.translate(margin - 32, height/2);
+        ctx.translate(marginLeft - 50, height/2);
         ctx.rotate(-Math.PI/2);
         ctx.textAlign = 'center';
         ctx.font = 'bold 13px sans-serif';
-        ctx.fillText('Tiempo (ms)', 0, 0);
+        ctx.fillText('Tiempo respuesta (ms)', 0, 0);
         ctx.restore();
         ctx.restore();
-        // Etiqueta eje X
+        // Marcas en eje X (tiempo desde inicio)
+        ctx.save();
         ctx.fillStyle = this.axisColor;
         ctx.font = '12px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('Petición', width/2, height-8);
+        const xDivs = 6;
+        for (let i = 0; i <= xDivs; i++) {
+            const val = xMin + (i / xDivs) * (xMax - xMin);
+            const x = marginLeft + ((val - xMin) / (xMax - xMin)) * chartW;
+            ctx.beginPath();
+            ctx.moveTo(x, height - margin);
+            ctx.lineTo(x, height - margin + 6);
+            ctx.stroke();
+            ctx.fillText(`${Math.round(val)} ms`, x, height - margin + 18);
+        }
+        // Etiqueta eje X
+        ctx.font = 'bold 13px sans-serif';
+        ctx.restore();
 
         // Leyenda
         const legendDiv = document.getElementById(this.legendId);
@@ -103,9 +127,7 @@ export class ThreadsCombinedChart {
         ctx.fillStyle = this.axisColor;
         ctx.font = '12px sans-serif';
         ctx.textAlign = 'right';
-        ctx.fillText('Tiempo (ms)', margin-6, margin+6);
         ctx.textAlign = 'center';
-        ctx.fillText('Petición', width/2, height-8);
     }
     handleMouseMove(e) {
         // Implementación del método handleMouseMove aquí

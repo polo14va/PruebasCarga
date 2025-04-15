@@ -219,10 +219,11 @@ export function initApp() {
       }
 
       let uniqueNumber = parseInt(localStorage.getItem('loadtest_unique_number'), 10) || 1;
-form.addEventListener('submit', function(event) {
+
+      form.addEventListener('submit', function(event) {
         event.preventDefault();
         showProgressSection();
-        updateUI(); // Fuerza donut en 0% antes de lanzar la prueba
+        updateUI();
         showControlButtons();
         let jsonData = null;
         let bodyStr = '';
@@ -232,53 +233,80 @@ form.addEventListener('submit', function(event) {
             const reader = new FileReader();
             reader.onload = function(e) {
               bodyStr = e.target.result;
-              finishSubmit();
+              obtenerBearerYContinuar();
             };
             reader.readAsText(file);
             return;
-          } else {
-            bodyStr = '';
           }
+          bodyStr = '';
         } else if (bodySourceText.checked) {
           bodyStr = jsonTextArea.value;
         }
-        finishSubmit();
-
-        function finishSubmit() {
+        obtenerBearerYContinuar();
+      
+        function obtenerBearerYContinuar() {
+          const authUrlValue = authUrl?.value?.trim();
+          if (authUrlValue) {
+            let authHeadersValue = authHeaders?.value?.trim();
+            let authHeadersObj = {};
+            if (authHeadersValue) {
+              try { authHeadersObj = JSON.parse(authHeadersValue); } catch { alert('Cabeceras para token no son JSON válido'); return; }
+            }
+            let authBodyValue = authBody?.value?.trim();
+            let authBodyObj = null;
+            if (authBodyValue) {
+              try { authBodyObj = JSON.parse(authBodyValue); } catch { alert('Body para token no es JSON válido'); return; }
+            }
+            (async () => {
+              try {
+                const resp = await fetch(authUrlValue, {
+                  method: 'POST',
+                  headers: { ...authHeadersObj, 'Content-Type': 'application/json' },
+                  body: authBodyObj ? JSON.stringify(authBodyObj) : undefined
+                });
+                if (!resp.ok) { alert('Error al obtener bearer token'); return; }
+                const data = await resp.json();
+                const bearerToken = data.access_token || data.token || data.bearer || null;
+                if (!bearerToken) { alert('No se encontró bearer token en la respuesta'); return; }
+                finishSubmitConToken(bearerToken);
+              } catch (e) {
+                alert('Error en la petición de token: ' + e);
+              }
+            })();
+          } else {
+            finishSubmitConToken(null);
+          }
+        }
+      
+        function finishSubmitConToken(bearerToken) {
           if (!bodyStr?.trim()) jsonData = null;
           else jsonData = processBody(bodyStr);
-
-          // Leer valores del formulario
+      
           const url = document.getElementById('url').value;
           const threadsInput = document.getElementById('threads');
-const threads = threadsInput && threadsInput.value ? parseInt(threadsInput.value, 10) : 1;
+          const threads = threadsInput && threadsInput.value ? parseInt(threadsInput.value, 10) : 1;
           const requestsInput = document.getElementById('requests');
-const requests = requestsInput && requestsInput.value ? parseInt(requestsInput.value, 10) : 1;
+          const requests = requestsInput && requestsInput.value ? parseInt(requestsInput.value, 10) : 1;
           const totalRequests = threads * requests;
-          const bearerToken = null; // Puedes obtenerlo del formulario si es necesario
-
-          // Configuración para reemplazo incremental
+      
           let replaceActive = replaceTokenCheck.checked;
           let replaceStr = replaceTokenString.value;
           let startNum = parseInt(replaceTokenStart.value, 10) || 1;
           let currentNum = uniqueNumber = startNum;
           localStorage.setItem('loadtest_unique_number', uniqueNumber);
-
-          // Crear configuración y resultado
+      
           const config = new LoadTestConfig(url, jsonData, threads, totalRequests, bearerToken);
           config.requestsPerThread = requests;
           const result = new LoadTestResult(threads);
           window.currentLoadTestResult = result;
-
-          // Crear y ejecutar el tester
+      
           const tester = new LoadTester(config, result, updateUI, () => {
             updateUI(true);
             restoreSubmitButton();
             localStorage.setItem('loadtest_unique_number', uniqueNumber);
           });
           window.currentLoadTester = tester;
-
-          // Hook para reemplazo incremental
+      
           if (replaceActive && replaceStr) {
             tester.onBeforeRequest = (body, reqIndex) => {
               let replaced = JSON.stringify(body).replaceAll(replaceStr, currentNum);

@@ -293,18 +293,92 @@ export function exportLoadTestPDF() {
       </html>
     `;
     
-    // Abrir una nueva ventana
-    const newWindow = window.open('', '_blank', 'width=800,height=600');
-    if (!newWindow) {
-      throw new Error("El navegador bloqueó la apertura de una nueva ventana. Permite ventanas emergentes para este sitio.");
+    
+    // Generar y descargar el PDF usando jsPDF
+    if (window.jspdf || window.jspdf?.jsPDF) {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      let y = 18;
+      // Título principal azul
+      doc.setFontSize(20);
+      doc.setTextColor('#0F3D74');
+      doc.text('Resumen de Pruebas de Carga', 105, y, { align: 'center' });
+      y += 12;
+      // Subtítulo navy blue
+      doc.setFontSize(14);
+      doc.setTextColor('#1A2E54');
+      doc.text('Datos Generales', 15, y);
+      y += 6;
+      // Tabla de datos generales con estilo corporativo
+      const tablaX = 20;
+      let tablaY = y;
+      const tablaW = 170;
+      const rowH = 10;
+      const col1W = 70, col2W = 50;
+      // Sombra
+      doc.setFillColor(230, 240, 255);
+      doc.roundedRect(tablaX+2, tablaY+2, tablaW, rowH*7, 8, 8, 'F');
+      // Fondo blanco
+      doc.setFillColor(255,255,255);
+      doc.setDrawColor('#13599B');
+      doc.setLineWidth(1.2);
+      doc.roundedRect(tablaX, tablaY, tablaW, rowH*7, 8, 8, 'FD');
+      // Cabecera azul
+      doc.setFillColor('#0F3D74');
+      doc.setTextColor(255,255,255);
+      doc.rect(tablaX, tablaY, tablaW, rowH, 'F');
+      doc.setFontSize(13);
+      doc.text('Métrica', tablaX+col1W/2, tablaY+7, {align:'center'});
+      doc.text('Valor', tablaX+col1W+col2W/2, tablaY+7, {align:'center'});
+      // Filas
+      const filas = [
+        {m:'Total OK', v:String(datos.ok), color:'#2DCCC0'},
+        {m:'Total KO', v:String(datos.ko), color:'#EE3A6A'},
+        {m:'Tiempo medio global', v:String(datos.globalAvg), color:'#13599B'},
+        {m:'Tiempo mínimo', v:String(datos.min), color:'#13599B'},
+        {m:'Tiempo máximo', v:String(datos.max), color:'#13599B'},
+        {m:'Duración total', v:String(datos.duration), color:'#13599B'}
+      ];
+      doc.setFontSize(12);
+      for(let i=0;i<filas.length;i++){
+        const fy = tablaY+rowH*(i+1);
+        // Línea separadora
+        doc.setDrawColor('#F3F2F3');
+        doc.line(tablaX, fy, tablaX+tablaW, fy);
+        // Métrica
+        doc.setTextColor('#0F3D74');
+        doc.text(filas[i].m, tablaX+5, fy+7, {align:'left'});
+        // Valor
+        doc.setTextColor(filas[i].color);
+        doc.text(filas[i].v, tablaX+col1W+col2W/2, fy+7, {align:'center'});
+      }
+      y = tablaY + rowH*7 + 8;
+      // Imágenes
+      doc.setFontSize(13);
+      doc.setTextColor('#1A2E54');
+      if (barChartImg) {
+        doc.text('Distribución de Tiempos', 15, y);
+        y += 4;
+        doc.addImage(barChartImg, 'PNG', 15, y, 180, 45); y += 50;
+      }
+      if (threadsCombinedChartImg) {
+        doc.text('Evolución por Hilos', 15, y);
+        y += 4;
+        doc.addImage(threadsCombinedChartImg, 'PNG', 15, y, 180, 45); y += 50;
+      }
+      if (donutChartImg) {
+        doc.text('Progreso', 15, y);
+        y += 4;
+        doc.addImage(donutChartImg, 'PNG', 60, y, 90, 45); y += 50;
+      }
+      doc.setFontSize(10);
+      doc.setTextColor('#0F3D74');
+      doc.text(`Documento generado el ${new Date().toLocaleDateString()} a las ${new Date().toLocaleTimeString()}`, 15, y);
+      doc.save('reporte_pruebas_carga.pdf');
+      console.log("Reporte descargado como PDF");
+    } else {
+      alert('No se encontró jsPDF. Asegúrate de que la librería está cargada.');
     }
-    
-    // Escribir el HTML en la nueva ventana
-    newWindow.document.write(htmlContent);
-    newWindow.document.close();
-    
-    console.log("Documento HTML generado en nueva ventana");
-    alert("Se ha abierto una nueva ventana con el reporte. Utiliza la función de impresión para guardar como PDF.");
     
   } catch (err) {
     console.error("Error al generar el reporte:", err);
